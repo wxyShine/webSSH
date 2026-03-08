@@ -1,6 +1,6 @@
 # WebSSH (Spring Boot)
 
-A browser-based SSH client built with Java Spring Boot + WebSocket. Features multi-tab terminals, session management, SFTP file management, port forwarding, host fingerprint verification, i18n, and login authentication.
+A browser-based SSH client built with Java Spring Boot + WebSocket. Features multi-tab terminals, session management, SFTP file management, port forwarding, host fingerprint verification, mobile support, i18n, and login authentication.
 
 ## Features
 
@@ -17,6 +17,7 @@ A browser-based SSH client built with Java Spring Boot + WebSocket. Features mul
 - **Terminal Themes** — 6 color schemes (Default Blue, Orange, Green, Amber, Purple, Red)
 - **Internationalization** — 7 languages (简体中文, English, 日本語, 한국어, Deutsch, Français, Русский)
 - **Fullscreen Mode** — Toggle fullscreen terminal display
+- **Mobile Adaptability** — Responsive Web Design with optimized layouts, sidebar touch control, and file management interactions for mobile browsers
 
 ## Tech Stack
 
