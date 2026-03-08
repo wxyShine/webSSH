@@ -221,3 +221,7 @@ Endpoint: `/ws/ssh`
 - Max concurrent WebSocket connections: 200
 - Max WebSocket message size: 8MB
 - WebSocket session idle timeout: 30 minutes
+
+## License
+
+This project is licensed under the **GNU Lesser General Public License v3.0 (LGPL-3.0)**. See the [LICENSE](LICENSE) and [COPYING](COPYING) files for details.

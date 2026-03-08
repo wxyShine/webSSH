@@ -221,3 +221,7 @@ webssh.ssh.allow-legacy-ssh-rsa=true
 - 最大并发 WebSocket 连接数：200
 - WebSocket 单条消息上限：8MB
 - WebSocket 会话空闲超时：30 分钟
+
+## 开源协议
+
+本项目采用 **GNU Lesser General Public License v3.0 (LGPL-3.0)** 协议开源。详情请参阅 [LICENSE](LICENSE) 和 [COPYING](COPYING) 文件。
