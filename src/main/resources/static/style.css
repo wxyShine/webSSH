@@ -1961,3 +1961,108 @@ button:disabled {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ==================== 机器人设置面板 ==================== */
+
+.sidebar-bottom {
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.bot-settings-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: hsla(220, 30%, 13%, 0.35);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s var(--transition);
+    font-family: inherit;
+}
+
+.bot-settings-btn:hover {
+    border-color: rgba(var(--theme-accent-rgb), 0.4);
+    background: hsla(220, 30%, 18%, 0.5);
+    color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.bot-settings-btn svg {
+    color: var(--theme-accent);
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.bot-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: background 0.3s;
+}
+
+.bot-status-dot.running {
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+    animation: bot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes bot-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.bot-drawer.open {
+    transform: translateX(var(--sidebar-width));
+}
+
+.sidebar.collapsed ~ .bot-drawer.open {
+    transform: translateX(0);
+}
+
+.bot-status-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.bot-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.3s;
+}
+
+.bot-indicator-stopped {
+    background: var(--text-dim);
+}
+
+.bot-indicator-running {
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+}
+
+.bot-indicator-error {
+    background: var(--accent-red);
+    box-shadow: 0 0 8px var(--accent-red);
+}
+
+.form-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-style: italic;
+}

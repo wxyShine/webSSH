@@ -102,7 +102,124 @@
                     </div>
                 </div>
             </section>
+
+            <!-- 机器人设置按钮 -->
+            <div class="sidebar-bottom">
+                <button id="openBotSettingsBtn" class="bot-settings-btn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    <span>机器人设置</span>
+                    <span id="botStatusDot" class="bot-status-dot"></span>
+                </button>
+            </div>
         </aside>
+
+        <!-- Bot Settings Drawer -->
+        <div id="botSettingsDrawer" class="config-drawer bot-drawer">
+            <div class="drawer-header">
+                <div class="drawer-title" id="botDrawerTitle">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    <span>机器人设置</span>
+                </div>
+                <button id="closeBotDrawerBtn" class="small-btn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>关闭</span>
+                </button>
+            </div>
+
+            <div class="drawer-body">
+                <!-- Telegram Bot 配置卡片 -->
+                <div class="drawer-card">
+                    <div class="drawer-card-header">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                        </svg>
+                        <span>Telegram Bot</span>
+                        <span id="botRunningBadge" class="card-badge" style="display:none;">运行中</span>
+                    </div>
+                    <div class="drawer-card-body">
+                        <div class="form-group">
+                            <label>Bot Token</label>
+                            <input id="botToken" type="password" placeholder="从 @BotFather 获取的 Token" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>Bot Username</label>
+                            <input id="botUsername" type="text" placeholder="如 my_webssh_bot（不含 @）" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>允许的用户 ID</label>
+                            <textarea id="botAllowedUsers" rows="3" placeholder="每行一个 Telegram 用户 ID&#10;留空则所有人可用"></textarea>
+                            <div class="form-hint">发送 /start 给 Bot 可获取你的用户 ID</div>
+                        </div>
+                        <div class="form-group form-toggle-row">
+                            <div class="toggle-label">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                </svg>
+                                <span>启用 Bot</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input id="botEnabled" type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 运行状态卡片 -->
+                <div class="drawer-card drawer-card-subtle">
+                    <div class="drawer-card-header">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        <span>运行状态</span>
+                    </div>
+                    <div class="drawer-card-body">
+                        <div class="bot-status-display">
+                            <span id="botStatusIndicator" class="bot-indicator bot-indicator-stopped"></span>
+                            <span id="botStatusText">未配置</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作栏 -->
+            <div class="drawer-footer">
+                <div class="drawer-footer-row">
+                    <button id="saveBotSettingsBtn" class="drawer-primary-btn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        <span>保存并应用</span>
+                    </button>
+                    <button id="restartBotBtn" class="secondary">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        <span>重启</span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Configuration Drawer (Drawer Mode) -->
         <div id="configDrawer" class="config-drawer">

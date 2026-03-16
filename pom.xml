@@ -54,6 +54,12 @@
             <artifactId>jsch</artifactId>
             <version>0.2.19</version>
         </dependency>
+        <!-- Telegram Bot API：用于实现 Telegram 机器人，通过 Long Polling 接收和发送消息 -->
+        <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots</artifactId>
+            <version>6.9.7.1</version>
+        </dependency>
         <!-- Spring Boot Test：测试依赖，包含 JUnit、Mockito、Spring Test 等，仅用于测试阶段 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
