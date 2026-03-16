@@ -70,7 +70,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
         ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
         container.setMaxTextMessageBufferSize(WS_MAX_MESSAGE_BYTES);
         container.setMaxBinaryMessageBufferSize(WS_MAX_MESSAGE_BYTES);
-        container.setMaxSessionIdleTimeout(30 * 60 * 1000L);
+        // 禁用容器级空闲超时，避免长时间静默终端被 Servlet 容器提前关闭；
+        // WebSSH 改由应用层心跳维持链路存活。
+        container.setMaxSessionIdleTimeout(0L);
         return container;
     }
 }

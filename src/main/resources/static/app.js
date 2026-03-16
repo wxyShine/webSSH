@@ -202,6 +202,8 @@ const forwardEls = {
 const SFTP_UPLOAD_CHUNK_BYTES = 512 * 1024;
 /** WebSocket 上传缓冲区上限：超过 2MB 时暂停发送，实现简易背压 */
 const SFTP_UPLOAD_MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
+/** WebSocket 心跳间隔：20 秒，覆盖常见代理的 30-60 秒空闲断连阈值 */
+const WS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
 
 /** 所有打开的终端标签，key 为标签 ID */
 const tabs = new Map();
@@ -637,7 +639,8 @@ function makeTab(profile = {}) {
         sftpConnectTimeout: null,
         downloadTask: null,
         uploadTask: null,
-        lastShellCwd: null
+        lastShellCwd: null,
+        heartbeatTimer: null
     };
 
     term.onData((data) => {
@@ -1136,6 +1139,32 @@ function sendWs(tab, payload) {
     }
     tab.socket.send(JSON.stringify(payload));
     return true;
+}
+
+function stopHeartbeat(tab) {
+    if (!tab || !tab.heartbeatTimer) {
+        return;
+    }
+    clearInterval(tab.heartbeatTimer);
+    tab.heartbeatTimer = null;
+}
+
+function startHeartbeat(tab) {
+    stopHeartbeat(tab);
+    if (!tab) {
+        return;
+    }
+    tab.heartbeatTimer = setInterval(() => {
+        if (!tab.socket || tab.socket.readyState !== WebSocket.OPEN) {
+            stopHeartbeat(tab);
+            return;
+        }
+        try {
+            sendWs(tab, { type: "ping" });
+        } catch (e) {
+            console.warn("WebSocket 心跳发送失败", e);
+        }
+    }, WS_HEARTBEAT_INTERVAL_MS);
 }
 
 function normalizeRemotePath(path) {
@@ -1818,12 +1847,7 @@ function connectActiveTab() {
     tab.allowEnterReconnect = false;
 
     if (tab.socket) {
-        try {
-            tab.socket.close();
-        } catch (e) {
-            console.warn(e);
-        }
-        tab.socket = null;
+        safeCloseSocket(tab);
     }
 
     tab.term.clear();
@@ -1843,6 +1867,7 @@ function connectActiveTab() {
         if (!isCurrentSocket()) {
             return;
         }
+        startHeartbeat(tab);
         tab.fitAddon.fit();
         try {
             socket.send(JSON.stringify({
@@ -1927,6 +1952,10 @@ function connectActiveTab() {
 
             if (msg.type === "output") {
                 tab.term.write(base64ToText(msg.data || ""));
+                return;
+            }
+
+            if (msg.type === "pong") {
                 return;
             }
 
@@ -2082,6 +2111,7 @@ function connectActiveTab() {
         if (!isCurrentSocket()) {
             return;
         }
+        stopHeartbeat(tab);
         const wasConnected = tab.connected;
         tab.connected = false;
         tab.allowEnterReconnect = wasConnected;
@@ -2122,6 +2152,10 @@ function connectActiveTab() {
 }
 
 function safeCloseSocket(tab) {
+    if (!tab) {
+        return;
+    }
+    stopHeartbeat(tab);
     if (!tab.socket) {
         return;
     }

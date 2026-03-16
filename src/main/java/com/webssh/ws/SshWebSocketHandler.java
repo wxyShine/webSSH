@@ -319,6 +319,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
                 case "input" -> handleInput(connection, payload);
                 case "resize" -> handleResize(connection, payload);
                 case "disconnect" -> handleDisconnect(connection);
+                case "ping" -> sendPong(connection.webSocketSession());
                 // SFTP 操作提交到 IO 线程池异步执行，避免阻塞 WebSocket 消息处理线程
                 case "sftp_list" -> submitIoTask(connection, "SFTP 列表", () -> handleSftpList(connection, payload));
                 case "sftp_download" ->
@@ -342,8 +343,11 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
     /** WebSocket 传输层错误时清理对应的客户端连接 */
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
-        log.debug("WebSocket 传输错误: {}", exception.getMessage());
         ClientConnection connection = connections.remove(session.getId());
+        log.warn("WebSocket 传输错误 [{}], 原因: {}, 状态: {}",
+                session.getId(),
+                safeMessage(exception),
+                describeConnectionState(connection, session));
         if (connection != null) {
             connection.close();
         }
@@ -353,6 +357,11 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         ClientConnection connection = connections.remove(session.getId());
+        log.info("WebSocket 连接关闭 [{}], code={}, reason={}, 状态: {}",
+                session.getId(),
+                status == null ? -1 : status.getCode(),
+                status == null ? "" : status.getReason(),
+                describeConnectionState(connection, session));
         if (connection != null) {
             connection.close();
         }
@@ -1048,7 +1057,9 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             while (!connection.isClosed() && webSocketSession.isOpen()) {
                 int read = outputReader.read(buf);
                 if (read < 0) {
-                    log.info("SSH 输出流读取到 EOF，准备关闭连接 [{}]", webSocketSession.getId());
+                    log.info("SSH 输出流读取到 EOF，准备关闭连接 [{}], 状态: {}",
+                            webSocketSession.getId(),
+                            describeConnectionState(connection, webSocketSession));
                     break;
                 }
                 if (read == 0) {
@@ -1069,7 +1080,10 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (IOException e) {
             if (connection.isConnected()) {
-                log.info("读取 SSH 输出异常 [{}], 原因: {}", webSocketSession.getId(), e.getMessage());
+                log.info("读取 SSH 输出异常 [{}], 原因: {}, 状态: {}",
+                        webSocketSession.getId(),
+                        safeMessage(e),
+                        describeConnectionState(connection, webSocketSession));
             }
         } finally {
             connection.close();
@@ -1170,6 +1184,14 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
         sendJson(session, json);
     }
 
+    /** 发送 pong 消息，响应前端心跳，帮助维持 WebSocket 活跃状态。 */
+    private void sendPong(WebSocketSession session) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("type", "pong");
+        json.put("timestamp", System.currentTimeMillis());
+        sendJson(session, json);
+    }
+
     /** 发送 port_forward_list 消息，返回当前所有端口转发规则（按方向和端口排序） */
     private void sendPortForwardList(WebSocketSession session, String message, List<PortForwardRule> forwards) {
         ObjectNode json = objectMapper.createObjectNode();
@@ -1256,6 +1278,24 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             current = current.getCause();
         }
         return false;
+    }
+
+    /** 输出当前连接快照，便于区分是 WebSocket、SSH Session 还是 Shell 通道先关闭。 */
+    private String describeConnectionState(ClientConnection connection, WebSocketSession session) {
+        Session sshSession = connection == null ? null : connection.sshSession();
+        ChannelShell channel = connection == null ? null : connection.channel();
+        boolean wsOpen = session != null && session.isOpen();
+        boolean sshConnected = sshSession != null && sshSession.isConnected();
+        boolean channelConnected = channel != null && channel.isConnected();
+        boolean channelClosed = channel != null && channel.isClosed();
+        boolean channelEof = channel != null && channel.isEOF();
+        int exitStatus = channel == null ? -1 : channel.getExitStatus();
+        return "wsOpen=" + wsOpen
+                + ", sshConnected=" + sshConnected
+                + ", channelConnected=" + channelConnected
+                + ", channelClosed=" + channelClosed
+                + ", channelEof=" + channelEof
+                + ", channelExitStatus=" + exitStatus;
     }
 
     // --- JSON 字段提取工具方法 ---
