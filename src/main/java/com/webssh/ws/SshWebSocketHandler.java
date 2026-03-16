@@ -108,6 +108,9 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
     /** 资源清理任务执行间隔（秒） */
     private static final long CLEANUP_INTERVAL_SECONDS = 60L;
 
+    /** 当远端未提供 UTF-8 locale 时，默认兜底值 */
+    private static final String DEFAULT_SHELL_UTF8_LOCALE = "en_US.UTF-8";
+
     /**
      * Shell 工作目录标记字节：STX (0x02) 和 ETX (0x03)。
      * <p>
@@ -133,6 +136,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
      * </ol>
      */
     private static final List<String> SHELL_CWD_INIT_COMMANDS = List.of(
+            "case \"${LC_ALL:-${LC_CTYPE:-$LANG}}\" in *[Uu][Tt][Ff]-8*) ;; *) export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 ;; esac",
             "__w(){ printf '\\002__WEBSSH_CWD__:%s\\003' \"$PWD\"; }",
             "[ \"$ZSH_VERSION\" ] && eval 'precmd_functions+=(__w)'",
             "[ \"$BASH_VERSION\" ] && eval 'PROMPT_COMMAND=\"__w${PROMPT_COMMAND:+;$PROMPT_COMMAND}\"'",
@@ -512,6 +516,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             channel = (ChannelShell) sshSession.openChannel("shell");
             channel.setPtyType("xterm-256color");
             channel.setPtySize(cols, rows, 0, 0);
+            applyUtf8ShellEnv(channel);
             outputReader = channel.getInputStream();
             inputWriter = channel.getOutputStream();
             channel.connect(5_000);
@@ -1495,6 +1500,21 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
         }
         // 恢复回显
         connection.write("{ stty echo; } 2>/dev/null\n");
+    }
+
+    /** 为交互式 shell 显式注入 UTF-8 locale，减少中文文件名显示为问号的问题。 */
+    private void applyUtf8ShellEnv(ChannelShell channel) {
+        trySetShellEnv(channel, "LANG", DEFAULT_SHELL_UTF8_LOCALE);
+        trySetShellEnv(channel, "LC_ALL", DEFAULT_SHELL_UTF8_LOCALE);
+        trySetShellEnv(channel, "LC_CTYPE", DEFAULT_SHELL_UTF8_LOCALE);
+    }
+
+    private void trySetShellEnv(ChannelShell channel, String key, String value) {
+        try {
+            channel.setEnv(key, value);
+        } catch (RuntimeException e) {
+            log.debug("设置 shell 环境变量失败: {}={}, {}", key, value, safeMessage(e));
+        }
     }
 
     // ==================== SSH 会话与 SFTP 基础设施 ====================
