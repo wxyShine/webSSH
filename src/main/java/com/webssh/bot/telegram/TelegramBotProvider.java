@@ -16,6 +16,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -124,6 +125,7 @@ public class TelegramBotProvider implements ChatBotProvider {
      */
     private class InternalBot extends TelegramLongPollingBot {
 
+        private static final int MAX_MESSAGE_LENGTH = 4000;
         private final String botUsername;
         private final Set<String> allowedUsers;
         private final String sshUsername;
@@ -415,44 +417,68 @@ public class TelegramBotProvider implements ChatBotProvider {
          * </p>
          */
         private void sendText(long chatId, String text, boolean markdown) {
-            try {
-                // 分批发送超长消息
-                String content = text;
-                while (!content.isEmpty()) {
-                    String chunk;
-                    if (content.length() > 4000) {
-                        int splitAt = content.lastIndexOf('\n', 4000);
-                        if (splitAt <= 0)
-                            splitAt = 4000;
-                        chunk = content.substring(0, splitAt);
-                        content = content.substring(splitAt);
-                    } else {
-                        chunk = content;
-                        content = "";
-                    }
-                    SendMessage msg = new SendMessage();
-                    msg.setChatId(String.valueOf(chatId));
-                    msg.setText(chunk);
+            List<String> chunks = splitForTelegram(text);
+            for (String chunk : chunks) {
+                try {
+                    sendChunk(chatId, chunk, markdown);
+                } catch (TelegramApiException e) {
+                    log.error("发送 Telegram 消息分片失败: {}", e.getMessage(), e);
+                    // Markdown 失败时仅回退当前分片，避免整段超长重发再次失败。
                     if (markdown) {
-                        msg.setParseMode("Markdown");
-                    }
-                    msg.setDisableWebPagePreview(true);
-                    execute(msg);
-                }
-            } catch (TelegramApiException e) {
-                log.error("发送 Telegram 消息失败: {}", e.getMessage(), e);
-                // 如果 Markdown 解析失败，尝试不用 Markdown 重发
-                if (markdown) {
-                    try {
-                        SendMessage fallback = new SendMessage();
-                        fallback.setChatId(String.valueOf(chatId));
-                        fallback.setText(text);
-                        fallback.setDisableWebPagePreview(true);
-                        execute(fallback);
-                    } catch (TelegramApiException ignored) {
+                        try {
+                            sendChunk(chatId, chunk, false);
+                        } catch (TelegramApiException fallbackError) {
+                            log.error("发送 Telegram 消息纯文本兜底失败: {}", fallbackError.getMessage(), fallbackError);
+                        }
+                    } else {
+                        break;
                     }
                 }
             }
+        }
+
+        /** 发送单个 Telegram 消息分片。 */
+        private void sendChunk(long chatId, String chunk, boolean markdown) throws TelegramApiException {
+            SendMessage msg = new SendMessage();
+            msg.setChatId(String.valueOf(chatId));
+            msg.setText(chunk);
+            if (markdown) {
+                msg.setParseMode("Markdown");
+            }
+            msg.setDisableWebPagePreview(true);
+            execute(msg);
+        }
+
+        /** 将长消息拆分为多个 Telegram 可接收的分片。 */
+        private List<String> splitForTelegram(String text) {
+            if (text == null || text.isEmpty()) {
+                return List.of();
+            }
+            if (text.length() <= MAX_MESSAGE_LENGTH) {
+                return List.of(text);
+            }
+
+            ArrayList<String> parts = new ArrayList<>();
+            int start = 0;
+            while (start < text.length()) {
+                int remaining = text.length() - start;
+                if (remaining <= MAX_MESSAGE_LENGTH) {
+                    parts.add(text.substring(start));
+                    break;
+                }
+
+                int end = start + MAX_MESSAGE_LENGTH;
+                int lineBreak = text.lastIndexOf('\n', end);
+                if (lineBreak <= start + 80) {
+                    lineBreak = end;
+                }
+                parts.add(text.substring(start, lineBreak));
+                start = lineBreak;
+                while (start < text.length() && text.charAt(start) == '\n') {
+                    start++;
+                }
+            }
+            return parts;
         }
 
         /** 转义 Telegram Markdown 保留字符，避免消息渲染失败。 */
