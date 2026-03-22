@@ -544,6 +544,7 @@ public class AiCliExecutor {
         cmd.add(CliType.CODEX.getCommandName());
 
         cmd.add("exec");
+        cmd.add("--full-auto");
 
         if (workDir != null && !workDir.isBlank()) {
             cmd.add("-C");
@@ -568,6 +569,8 @@ public class AiCliExecutor {
         cmd.add(CliType.CLAUDE.getCommandName());
         cmd.add("-p");
         cmd.add(prompt);
+        // 机器人场景无交互终端，跳过权限审批以实现完全自动化执行。
+        cmd.add("--dangerously-skip-permissions");
         // 新版 Claude CLI 在 --print + stream-json 下要求显式开启 verbose。
         cmd.add("--verbose");
         cmd.add("--output-format");

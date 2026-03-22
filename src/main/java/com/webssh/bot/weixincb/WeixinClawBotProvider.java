@@ -31,6 +31,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 微信 ClawBot (iLink 协议) Provider。
@@ -52,11 +56,18 @@ public class WeixinClawBotProvider implements ChatBotProvider {
     private static final double RECONNECT_MULTIPLIER = 1.5;
     private static final long RECONNECT_MAX_MS = 25_000;
     private static final int MAX_MESSAGE_LENGTH = 2000;
+    private static final long AI_STREAM_FLUSH_INTERVAL_MS = 2_500;
+    private static final int AI_STREAM_BATCH_THRESHOLD = 700;
 
     private final BotInteractionService interactionService;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final ExecutorService eventExecutor;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "weixin-cb-scheduler");
+        t.setDaemon(true);
+        return t;
+    });
 
     private volatile ProviderConfig currentConfig;
     private volatile boolean running = false;
@@ -125,7 +136,11 @@ public class WeixinClawBotProvider implements ChatBotProvider {
     }
 
     @PreDestroy
-    void destroy() { stop(); }
+    void destroy() {
+        stop();
+        scheduler.shutdownNow();
+        eventExecutor.shutdownNow();
+    }
 
     // ===== 配置解析 =====
 
@@ -363,14 +378,15 @@ public class WeixinClawBotProvider implements ChatBotProvider {
             reply(msg, "已有 " + cliType.getDisplayName() + " 任务在运行。");
             return;
         }
-        // 简单累积输出，完成后一次发送
-        StringBuilder output = new StringBuilder();
+
+        reply(msg, "⏳ " + cliType.getDisplayName() + " 任务已启动\n输出会按分段自动推送...");
+
+        BufferedAiReplyPublisher publisher = new BufferedAiReplyPublisher(msg, cliType);
         var result = interactionService.startAiTask(TYPE, msg.userId(), prompt, cliType,
-                output::append,
+                publisher::append,
                 () -> {
-                    String text = output.toString().trim();
-                    if (text.isEmpty()) text = "(无输出)";
-                    reply(msg, truncate(text));
+                    var snapshot = interactionService.getAiTaskSnapshot(TYPE, msg.userId(), cliType);
+                    publisher.finish(snapshot);
                 });
         if (!result.started()) {
             reply(msg, "启动失败: " + result.message());
@@ -447,6 +463,77 @@ public class WeixinClawBotProvider implements ChatBotProvider {
             }
         } catch (Exception e) {
             log.error("微信 ClawBot 发送消息失败: {}", e.getMessage());
+        }
+    }
+
+    private final class BufferedAiReplyPublisher {
+        private final IncomingMessage message;
+        private final AiCliExecutor.CliType cliType;
+        private final StringBuilder pending = new StringBuilder();
+        private ScheduledFuture<?> flushFuture;
+        private boolean sentAnyChunk;
+        private boolean finished;
+
+        private BufferedAiReplyPublisher(IncomingMessage message, AiCliExecutor.CliType cliType) {
+            this.message = message;
+            this.cliType = cliType;
+        }
+
+        synchronized void append(String chunk) {
+            if (finished || chunk == null || chunk.isBlank()) {
+                return;
+            }
+            if (pending.length() > 0) {
+                pending.append('\n');
+            }
+            pending.append(chunk.trim());
+
+            if (pending.length() >= AI_STREAM_BATCH_THRESHOLD) {
+                flushPending(false);
+                cancelScheduledFlush();
+            } else if (flushFuture == null || flushFuture.isDone()) {
+                flushFuture = scheduler.schedule(() -> {
+                    synchronized (BufferedAiReplyPublisher.this) {
+                        flushPending(false);
+                        flushFuture = null;
+                    }
+                }, AI_STREAM_FLUSH_INTERVAL_MS, TimeUnit.MILLISECONDS);
+            }
+        }
+
+        synchronized void finish(BotInteractionService.AiTaskSnapshot snapshot) {
+            if (finished) return;
+            finished = true;
+            cancelScheduledFlush();
+            flushPending(false);
+
+            if (!sentAnyChunk) {
+                if (snapshot != null && snapshot.hasOutput()) {
+                    reply(message, truncate(snapshot.lastOutput()));
+                } else {
+                    reply(message, "(无输出)");
+                }
+                return;
+            }
+
+            reply(message, "✅ " + cliType.getDisplayName() + " 任务已结束。");
+        }
+
+        private void cancelScheduledFlush() {
+            if (flushFuture != null) {
+                flushFuture.cancel(false);
+                flushFuture = null;
+            }
+        }
+
+        private void flushPending(boolean allowEmpty) {
+            String text = pending.toString().trim();
+            pending.setLength(0);
+            if (!allowEmpty && text.isEmpty()) {
+                return;
+            }
+            reply(message, text);
+            sentAnyChunk = true;
         }
     }
 
