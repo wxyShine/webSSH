@@ -18,7 +18,7 @@
 - **国际化** — 支持 7 种语言（简体中文、English、日本語、한국어、Deutsch、Français、Русский）
 - **全屏模式** — 终端可切换全屏显示
 - **移动端适配** — 响应式 Web 设计，针对手机端优化布局、侧边栏滑动及文件管理交互
-- **聊天机器人接入** — 支持 Telegram Bot 与 QQ 私聊机器人，可直接通过消息管理 SSH 与 AI 编程任务
+- **聊天机器人接入** — 支持 Telegram Bot、微信ClawBot 与 QQ 私聊机器人，可直接通过消息管理 SSH 与 AI 编程任务
 
 ## 技术栈
 
@@ -252,10 +252,11 @@ webssh.ssh.allow-legacy-ssh-rsa=true
 
 - **Telegram Bot**：使用 Long Polling，无需公网回调
 - **QQ 私聊机器人**：按 OpenClaw 同款方式直连官方 OpenAPI + Gateway，当前支持与机器人私聊触发
+- **微信 ClawBot**：通过微信官方 iLink 协议直连，支持扫码登录，无需公网 IP。
 
 ### 机器人命令
 
-两种机器人共用同一套核心命令：
+几种机器人共用同一套核心命令：
 
 - SSH：`/list`、`/connect`、`/disconnect`、`/status`
 - AI：`/codex [提示词]`、`/codex_stop`、`/codex_status`、`/codex_clear`
@@ -263,56 +264,37 @@ webssh.ssh.allow-legacy-ssh-rsa=true
 
 `/codex` 或 `/claude` 会进入对应 AI 模式；进入后普通文本将持续按该模式执行，直到输入 `codex_stop` / `codex_clear` / `claude_stop` / `claude_clear`（支持带或不带 `/`）退出模式。未进入 AI 模式时，连接 SSH 后普通文本按 Shell 命令执行。
 
-### QQ 私聊机器人说明
+### 接入说明
 
-- 在管理面板中填写 `App ID`、`App Secret`
-- 当前只支持**与机器人私聊**，不支持群聊
-- 采用与 OpenClaw `qqbot` 插件一致的直连方式：`AppID + AppSecret + Gateway WebSocket`
-- **无需配置回调地址**
-- 可按需配置“允许的用户 ID”白名单；留空表示不额外限制
-- 由于 QQ 机器人有回复频控限制，SSH 与 AI 输出采用**聚合回复**，不会像 Telegram 那样持续刷屏推送
-
-### 机器人配置接口
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/bot-settings` | 获取所有机器人 provider 和配置 |
-| `GET` | `/api/bot-settings/{type}` | 获取指定机器人配置 |
-| `POST` | `/api/bot-settings/{type}` | 保存并应用指定机器人配置 |
-| `GET` | `/api/bot-settings/{type}/status` | 获取指定机器人运行状态 |
-| `POST` | `/api/bot-settings/{type}/restart` | 重启指定机器人 |
-
-当前内置的 `type`：
-
-- `telegram`
-- `qq-official`
-
-## 如何申请机器人
-
-### 1. Telegram 机器人
+#### 1. Telegram 机器人
 
 1. 在 Telegram 中搜索 `@BotFather`。
-2. 发送 `/newbot` 命令，按照提示设置机器人的显示名称（Name）和唯一用户名（Username，必须以 `bot` 结尾）。
-3. 申请成功后，`BotFather` 会返回一个 **API Token**。
-4. 将此 Token 填写到 WebSSH 管理面板的 Telegram 配置项中。
+2. 发送 `/newbot` 命令，按照提示设置机器人的显示名称（Name） and 唯一用户名（Username）。
+3. 申请成功后获取 **API Token**。
+4. 将 Token 填写到 WebSSH 管理面板的 Telegram 配置项中。
 
-### 2. QQ 官方机器人
+#### 2. QQ 官方机器人
 
 1. 登录 [QQ 开放平台](https://q.qq.com/qqbot/openclaw/index.html)。
-2. 申请openClaws机器人。
+2. 申请并获取 **AppID** 和 **AppSecret**。
+3. 在管理面板填写信息，启用后通过私聊与机器人交互。
 
-![QQ Bot Registration](./img/0dc7cd58-8264-4ab4-a106-323aaf9f5dfa.png)
+#### 3. 微信 ClawBot
 
-3. 进入机器人管理页面，在「开发设置」中获取 **AppID** 和 **AppSecret** (ClientSecret)。
-4. 在 WebSSH 管理面板中填写上述信息。
-5. **获取用户 ID**：
-    - 在管理面板开启机器人后，在 Telegram 或 QQ 中与机器人私聊。
-    - 机器人连接成功后，在 WebSSH 后端日志中（控制台或 `nohup.out`）可以看到你的 UserID（通常是一串加密字符）。
-    - 将你的 UserID 加入到「允许的用户 ID」白名单中，以确保安全。
-6. **注意**：
-    - 采用直连方式（AppID + AppSecret + Gateway WebSocket），**无需配置回调地址**。
-    - 建议在「开发设置」中将「私信」功能开启。
-    - 确保机器人已上线或处于开发模式。
+这种方式通过微信官方 iLink 平台接入，流程简洁。
+
+1. 在 WebSSH 管理面板中找到 **微信 ClawBot** 卡片。
+2. 点击 **扫码获取 Token**。
+3. 弹出二维码后，使用微信扫码并确认（如果是首次使用，请按微信提示操作，通常需要扫码两次：一次建立连接，一次确认授权）。
+4. 扫码确认后，系统会自动捕获 `Bot Token` 并回填到表单。
+5. 勾选“启用 Bot”并点击“保存并应用”。
+
+### 提示
+
+- **用户隔离**：建议在“允许的用户 ID”中配置你的私人账号 ID，防止机器人被他人误用。
+- **关联用户**：每个机器人配置项中都有“关联 WebSSH 用户”，该机器人将能够访问并管理该用户下的所有 SSH 会话。
+- **聚合回复**：由于 QQ 和微信平台对消息频率有严格限制，机器人的 SSH 或 AI 输出可能会进行聚合发送，以避免触发频控。
+
 
 ## SFTP 说明
 
